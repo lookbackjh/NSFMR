@@ -3,6 +3,9 @@ import pytorch_lightning as pl
 from src.model.deepfm import DeepFM
 from src.data.customdata import CustomData
 import pandas as pd
+from src.data.fm_preprocess import FM_Preprocessing
+from src.model.deepfm import DeepFM
+from src.model.fm import FactorizationMachine
 import numpy as np
 # 맘에안듬
 import argparse
@@ -25,58 +28,24 @@ def parser():
     args = parser.parse_args("")
     return args
 
-args=parser()
+def trainer(args):
+    # you can either use your own dataset. 
+    train_df = pd.read_pickle('dataset/ml-100k/data_one_hot.pkl')
+    train_preprocess = FM_Preprocessing(train_df)
+    train_X_tensor=train_preprocess.X_tensor
+    train_y_tensor=train_preprocess.y_tensor
+    train_c_values_tensor=train_preprocess.c_values_tensor
+    train_dataset=CustomData(train_X_tensor,train_y_tensor,train_c_values_tensor)
+    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
+    if args.model_type=='fm':
+        model=FactorizationMachine(train_preprocess.num_features,args.num_factors,args)
+    elif args.model_type=='deepfm':
+        model=DeepFM(train_preprocess.num_features,args.num_factors,args)
 
-x=pd.read_csv('neg_sample_data_original.csv')
-#x.drop(['Unnamed: 0'],axis=1,inplace=True)
-# make product dictionary , can als be loaded from json file
-productdict={}
-for pf in x['PRODUCT_CODE'].unique():
-    productdict[pf]=int(x[x['PRODUCT_CODE']==pf]['product_frequency'].iloc[0])
+    #model=DeepFM(preprocess.num_features,args.num_factors,args)
+    pl.trainer.Trainer(max_epochs=args.num_epochs).fit(model,train_dataloader)
+    return model,train_preprocess
 
-import tqdm
-
-customer_onehot=pd.get_dummies(x,columns=['AUTH_CUSTOMER_ID'])
-
-customerids=x['AUTH_CUSTOMER_ID'].unique()
-productids=x['PRODUCT_CODE'].unique()
-
-# customer id-> dataframe dictionary
-customerdict={}
-
-for customerid in tqdm.tqdm(customerids[:2]):
-    a=[]
-    for pid in productids:
-        cur_customer_id='AUTH_CUSTOMER_ID_'+str(customerid)
-        temp=customer_onehot[customer_onehot[cur_customer_id]==1].iloc[0]
-        temp['PRODUCT_CODE']=pid
-        temp['product_frequency']=productdict[pid]
-        a.append(temp)
-    temp=pd.DataFrame(a)
-    temp=pd.get_dummies(temp,columns=['PRODUCT_CODE'])
-    customerdict[customerid]=temp
-
-mymodel=DeepFM(7746,10,args)
-mymodel.load_state_dict(torch.load("model.pth"))
-mymodel.eval()
-
-for customerid in customerids[:2]:
-    d=customerdict[customerid]
-    c_values=d['c'].values
-    y=d['target'].values
-    X=d.drop(['c','target'],axis=1).values
-    X=X.astype(float)
-    y=y.astype(float)
-    X_tensor = torch.tensor(X, dtype=torch.float32)
-    y_tensor = torch.tensor(y, dtype=torch.float32).view(-1)
-    c_values_tensor = torch.tensor(c_values, dtype=torch.float32)
-    dataset=CustomData(X_tensor,y_tensor,c_values_tensor)
-    #dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
-    result=mymodel.forward(X_tensor)
-    top5idx=torch.argsort(result,descending=True)[:5]
-
-    print("customer id: ",customerid, end=" ")
-    print("top 5 recommended product code: ",productids[top5idx])
-
-
-
+if __name__ == '__main__':
+    args=parser()
+    model,train_preprocess=trainer(args)

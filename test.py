@@ -4,6 +4,7 @@ from src.model.deepfm import DeepFM
 from src.data.customdata import CustomData
 import pandas as pd
 import numpy as np
+import tqdm
 # 맘에안듬
 import argparse
 def parser():
@@ -27,40 +28,33 @@ def parser():
 
 args=parser()
 
-x=pd.read_csv('original.csv')
-#x.drop(['Unnamed: 0'],axis=1,inplace=True)
+x=pd.read_csv('original_float.csv')
+x.drop(['Unnamed: 0'],axis=1,inplace=True)
 # make product dictionary , can als be loaded from json file
-productdict={}
-for pf in x['movie_id'].unique():
-    productdict[pf]=int(x[x['movie_id']==pf]['movie_frequency'].iloc[0])
-
-import tqdm
-
-customer_onehot=pd.get_dummies(x,columns=['user_id'])
-
 customerids=x['user_id'].unique()
 productids=x['movie_id'].unique()
+
+customer_onehot=pd.get_dummies(x,columns=['user_id','movie_id'])
+#customer_onehot=customer_onehot.astype(float)
 
 # customer id-> dataframe dictionary
 customerdict={}
 
-for customerid in tqdm.tqdm(customerids[:2]):
+for customerid in tqdm.tqdm(customerids[:]):
     a=[]
-    for pid in productids:
-        cur_customer_id='user_id'+str(customerid)
-        temp=customer_onehot[customer_onehot[cur_customer_id]==1].iloc[0]
-        temp['movie_id']=pid
-        temp['movie_frequency']=productdict[pid]
-        a.append(temp)
-    temp=pd.DataFrame(a)
-    temp=pd.get_dummies(temp,columns=['movie_id'])
-    customerdict[customerid]=temp
 
-mymodel=DeepFM(7746,10,args)
+    cur_customer_id='user_id_'+str(customerid)
+    temp=customer_onehot[customer_onehot[cur_customer_id]==1]
+
+
+    customerdict[customerid]=pd.DataFrame(temp)
+
+
+mymodel=DeepFM(2669,10,args)
 mymodel.load_state_dict(torch.load("model.pth"))
 mymodel.eval()
 
-for customerid in customerids[:2]:
+for customerid in customerids[:]:
     d=customerdict[customerid]
     c_values=d['c'].values
     y=d['target'].values

@@ -3,3 +3,4 @@ lightning
 pandas
 numpy
 tqdm
+tensorboard

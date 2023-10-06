@@ -45,6 +45,9 @@ class FM_Preprocessing:
         c = self.df['c']
         X=X.drop(['target','c'],axis=1,inplace=False)
         y=self.df['target']
+        # there are booleans in dataframe X and I want to change dtype of the data to float
+        X = X.astype(float)
+
         X_tensor = torch.tensor(X.values, dtype=torch.float32)
         y_tensor = torch.tensor(y.values, dtype=torch.float32).view(-1)
 

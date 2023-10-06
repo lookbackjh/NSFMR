@@ -99,11 +99,11 @@ class DeepFM(pl.LightningModule):
     #     return recommendations, scores
     
 
-    # # if you want to save model, uncomment the following function.
-    # def on_train_end(self) -> None:
-    #     #save model
-    #     torch.save(self.state_dict(), 'model.pth')
-    #     return super().on_train_end()
+    # if you want to save model, uncomment the following function.
+    def on_train_end(self) -> None:
+        #save model
+        torch.save(self.state_dict(), 'model.pth')
+        return super().on_train_end()
 
 
 

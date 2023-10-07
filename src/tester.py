@@ -73,6 +73,17 @@ class Tester:
         
         return user_df,user_list,movie_list
 
+    def get_metric(self,pred,real):
+        # pred is a list of top 5 recommended product code
+        # real is a list of real product code
+
+        # want to calculate precision, recall, f1 score
+        # precision = true positive / (true positive + false positive)
+        # recall = true positive / (true positive + false negative)
+        # f1 score = 2 * (precision * recall) / (precision + recall)
+        #(len(set(self.recommended_products).intersection(set(actual)))/len(self.recommended_products))
+        precision=len(set(pred).intersection(set(real)))/len(pred)
+        return precision
     
     def test(self):
         
@@ -81,11 +92,12 @@ class Tester:
         user_list=user_list.astype(int).unique().tolist()
         movie_list=movie_list.astype(int).unique().tolist()
         self.model.eval()
+        precisions=[]
         for customerid in tqdm.tqdm(user_list[:]):
 
             cur_customer_id='user_id_'+str(customerid)
             temp=user_df[user_df[cur_customer_id]==1]
-            print(temp)
+            #print(temp)
             c_values=temp['c'].values
             y=temp['target'].values
             X=temp.drop(['c','target'],axis=1).values
@@ -95,10 +107,32 @@ class Tester:
             y_tensor = torch.tensor(y, dtype=torch.float32).view(-1)
             c_values_tensor = torch.tensor(c_values, dtype=torch.float32)
             result=self.model.forward(X_tensor)
-            topidx=torch.argsort(result,descending=True)[:5]
+            topidx=torch.argsort(result,descending=True)[:]
+            #swith tensor to list
+            topidx=topidx.tolist()
 
-            
+
             print("customer id: ",customerid, end=" ")
-            print("top 5 recommended product code: ",movie_list[topidx])
+            movie_list=np.array(movie_list)
+            # reorder movie_list
+            movie_list=movie_list[topidx]
+            cur_userslist=np.array(self.original_df[self.original_df['user_id']==customerid]['movie_id'].unique())
+            real_rec=np.setdiff1d(movie_list,cur_userslist)
+            
+            print("top {} recommended product code: ".format(self.args.topk),real_rec[:5])
+
+            cur_user_test=np.array(self.test_df[self.test_df['user_id']==customerid])
+            cur_user_test=cur_user_test[:,1]
+            cur_user_test=np.unique(cur_user_test)
+            cur_user_test=cur_user_test.tolist()
+            print("real product code: ",cur_user_test[:])
+            real_rec=real_rec.tolist()
+
+            precision=self.get_metric(real_rec[:self.args.topk],cur_user_test)
+            precisions.append(precision)
+  
+            print("precision: ",precision)
+        print("average precision: ",np.mean(precisions))
+        return np.mean(precisions)
 
         

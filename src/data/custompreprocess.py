@@ -68,6 +68,8 @@ class CustomOneHot:
         userinfoadded=pd.get_dummies(columns=['user_id'],data=userinfoadded)
 
         #print(userinfoadded)
+        userinfoadded.drop(['user_frequency'],axis=1,inplace=True)
+        userinfoadded.drop(['movie_frequency'],axis=1,inplace=True)
 
         return userinfoadded
 

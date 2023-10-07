@@ -4,6 +4,7 @@ from src.data.custompreprocess import CustomOneHot
 from src.data.fm_preprocess import FM_Preprocessing
 import tqdm
 import torch
+import copy
 
 class Tester:
 
@@ -66,12 +67,13 @@ class Tester:
 
         #pd.getdummies on user_id
         user_df=pd.get_dummies(columns=['user_id'],data=userinfoadded)
-        
+        user_df.drop(['user_frequency'],axis=1,inplace=True)
+        user_df.drop(['movie_frequency'],axis=1,inplace=True)   
     
 
         print(user_df)
         
-        return user_df,user_list,movie_list
+        return user_df,user_list,movie_ids
 
     def get_metric(self,pred,real):
         # pred is a list of top 5 recommended product code
@@ -90,9 +92,10 @@ class Tester:
         user_df,user_list,movie_list=self.test_data_generator() 
         #fm=FM_Preprocessing(user_df)
         user_list=user_list.astype(int).unique().tolist()
-        movie_list=movie_list.astype(int).unique().tolist()
+        #movie_list=movie_list.tolist()
         self.model.eval()
         precisions=[]
+        print(user_df)
         for customerid in tqdm.tqdm(user_list[:]):
 
             cur_customer_id='user_id_'+str(customerid)
@@ -113,11 +116,14 @@ class Tester:
 
 
             print("customer id: ",customerid, end=" ")
-            movie_list=np.array(movie_list)
+            ml=copy.deepcopy(movie_list)    
+            ml=np.array(ml)
+            print(ml)
             # reorder movie_list
-            movie_list=movie_list[topidx]
+            ml=ml[topidx]
+            print(ml)
             cur_userslist=np.array(self.original_df[self.original_df['user_id']==customerid]['movie_id'].unique())
-            real_rec=np.setdiff1d(movie_list,cur_userslist)
+            real_rec=np.setdiff1d(ml,cur_userslist)
             
             print("top {} recommended product code: ".format(self.args.topk),real_rec[:5])
 
@@ -125,6 +131,8 @@ class Tester:
             cur_user_test=cur_user_test[:,1]
             cur_user_test=np.unique(cur_user_test)
             cur_user_test=cur_user_test.tolist()
+            if(len(cur_user_test)==0):
+                continue
             print("real product code: ",cur_user_test[:])
             real_rec=real_rec.tolist()
 

@@ -123,7 +123,9 @@ class Tester:
             ml=ml[topidx]
             print(ml)
             cur_userslist=np.array(self.original_df[self.original_df['user_id']==customerid]['movie_id'].unique())
-            real_rec=np.setdiff1d(ml,cur_userslist)
+
+            # erase the things in ml that are in cur_userslist without changing the order
+            real_rec=np.setdiff1d(ml,cur_userslist,assume_unique=True)
             
             print("top {} recommended product code: ".format(self.args.topk),real_rec[:5])
 

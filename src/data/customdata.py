@@ -1,6 +1,6 @@
 import torch.utils.data as data_utils
 
-class CustomData(data_utils.Dataset):
+class CustomDataLoader(data_utils.Dataset):
     # as we already converted to tensor, we can directly return the tensor
     def __init__(self,x,y,c) -> None:
         self.x=x

@@ -43,6 +43,9 @@ class NegativeSampler:
         df['user_frequency'] = df.groupby('user_id')['user_id'].transform('count')
         df['movie_frequency'] = df.groupby('movie_id')['movie_id'].transform('count')
         #multiprocess
+
+        print("Negative Sampling Started")
+
         for customer in tqdm.tqdm(unique_customers):
             unique_products = df['movie_id'].unique()
 
@@ -82,6 +85,8 @@ class NegativeSampler:
 
         to_return = pd.concat([self.original_df, not_purchased_df], axis=0, ignore_index=True)
         #print(to_return)
+
+        print("Negative Sampling Finished")
         return to_return
     
 

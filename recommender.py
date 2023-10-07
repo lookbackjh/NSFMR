@@ -9,6 +9,28 @@ from src.model.fm import FactorizationMachine
 import numpy as np
 # 맘에안듬
 import argparse
+from src.data.negativesampler import NegativeSampler
+from src.data.custompreprocess import CustomOneHot
+from src.data.movielensdata import MovielensData
+import pandas as pd
+
+def getdata():
+    movielens=MovielensData('dataset/ml-100k','u.data',fold=1)
+    train,test=movielens.data_getter()
+    movie_info=movielens.movie_getter()
+    user_info=movielens.user_getter()
+
+    ## 1. Negative Sampling
+    ns=NegativeSampler(train,seed=42)
+    nssampled=ns.negativesample(checkuniform=False)
+
+    ## 2. one hot encoding
+
+    onehot=CustomOneHot(nssampled,movie_info,user_info)
+    train=onehot.infomerge()
+
+    return train, test
+
 def parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--num_factors', type=int, default=10, help='Number of factors for FM')
@@ -23,14 +45,12 @@ def parser():
     parser.add_argument('--save_model', type=bool, default=False)
     parser.add_argument('--model_type', type=str, default='deepfm', help='fm or deepfm')
     parser.add_argument('--topk', type=int, default=10, help='top k items to recommend')
-
-
     args = parser.parse_args("")
     return args
 
 def trainer(args):
     # you can either use your own dataset. 
-    train_df = pd.read_pickle('dataset/ml-100k/data_one_hot.pkl')
+    train_df ,test=getdata()
     train_preprocess = FM_Preprocessing(train_df)
     train_X_tensor=train_preprocess.X_tensor
     train_y_tensor=train_preprocess.y_tensor

@@ -133,7 +133,7 @@ class Tester:
             cur_user_test=cur_user_test[:,1]
             cur_user_test=np.unique(cur_user_test)
             cur_user_test=cur_user_test.tolist()
-            if(len(cur_user_test)==0):
+            if(len(cur_user_test)==0 or len(cur_user_test)<self.args.topk):
                 continue
             print("real product code: ",cur_user_test[:])
             real_rec=real_rec.tolist()

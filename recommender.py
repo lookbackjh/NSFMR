@@ -18,7 +18,7 @@ def parser():
     parser.add_argument('--num_factors', type=int, default=10, help='Number of factors for FM')
     parser.add_argument('--lr', type=float, default=0.001, help='Learning rate')
     parser.add_argument('--weight_decay', type=float, default=0.1, help='Weight decay')
-    parser.add_argument('--num_epochs', type=int, default=100,    help='Number of epochs')
+    parser.add_argument('--num_epochs', type=int, default=200,    help='Number of epochs')
     parser.add_argument('--batch_size', type=int, default=2048, help='Batch size')
     parser.add_argument('--num_workers', type=int, default=20, help='Number of workers for dataloader')
     parser.add_argument('--num_deep_layers', type=int, default=2, help='Number of deep layers')
@@ -78,10 +78,19 @@ def trainer(args,train_df):
 
 if __name__ == '__main__':
     args=parser()
-    train_df ,test,movie_info,user_info=getdata(args.fold)
-    model,train_preprocess,test=trainer(args,train_df)
-    tester=Tester(args,model,train_df,test,movie_info,user_info)
-    result=tester.test()
-    print(result)
+    folds=[1,2,3,4,5]
+    results=[]
+    for i in range(1,6):
+        args.fold=i
+        train_df ,test,movie_info,user_info=getdata(args.fold)
+        model,train_preprocess,test=trainer(args,train_df)
+        tester=Tester(args,model,train_df,test,movie_info,user_info)
+        result=tester.test()
+        results.append(result)
+    
+    print("fold 1 to 5 results")
+    for i in range(5):
+        print("fold ",i+1," result:",end=" ")
+        print(results[i])
 
 

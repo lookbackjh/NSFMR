@@ -12,7 +12,13 @@ class NegativeSampler:
         self.original_df.drop(columns=['timestamp','rating'], axis=1, inplace=True)
         self.original_df['target']=1
         self.original_df['c']=1
+        self.movie_info=pd.read_csv('dataset/ml-100k/u.item',sep='|',header=None, names=['movie_id','movie_title','release_date','video_release_date','IMDb_URL','unknown','Action','Adventure','Animation','Children','Comedy','Crime','Documentary','Drama','Fantasy','Film-Noir','Horror','Musical','Mystery','Romance','Sci-Fi','Thriller','War','Western'],encoding='latin-1')
+        self.movie_info.drop(['movie_title','release_date','video_release_date','IMDb_URL'],axis=1,inplace=True)
+        self.movie_info['movie_id']=self.movie_info['movie_id'].astype(int)
 
+        self.user_info=pd.read_csv('dataset/ml-100k/u.user',sep='|', names=['age','gender','occupation','zipcode'])
+        self.user_info.drop(['zipcode'],axis=1,inplace=True)
+        self.user_info['user_id']=self.user_info.index
         pass
 
     
@@ -20,11 +26,11 @@ class NegativeSampler:
 
     # function taht calculates the c value for each customer and product
     # the higher beta means more weiht on the product frequency, the higher alpha means more weight on the customer frequency
-    def get_c(self,df, alpha=.5, beta=.5, gamma=.5, c_zero=.5):
+    def get_c(self,df,uu_sum,ii_sum, alpha=.5, beta=.5, gamma=.5, c_zero=.5):
         UF = np.array(df["user_frequency"].astype("float"), dtype=float)
-        UF /= np.sum(UF)
+        UF /= uu_sum
         IF = np.array(df["movie_frequency"].astype("float"), dtype=float)
-        IF /= np.sum(IF)
+        IF /= ii_sum
         Fs = alpha * beta * IF * UF
         Fs_gamma = Fs ** gamma
         c = Fs_gamma / np.sum(Fs_gamma)
@@ -76,13 +82,27 @@ class NegativeSampler:
         
         not_purchased_df['target'] = 0
 
+        mm=self.movie_info['movie_id'].map(self.original_df['movie_id'].value_counts())
+        #change nan to 0
+        mm.fillna(0,inplace=True)
+        mm_sum=np.sum(mm.tolist())
+
+
+        uu=self.user_info['user_id'].map(self.original_df['user_id'].value_counts())
+        #change nan to 0
+        uu.fillna(0,inplace=True)
+        uu_sum=np.sum(uu.tolist())
+
+        
         if checkuniform:
             not_purchased_df['c'] = 1
             
         
         else:
-            not_purchased_df=self.get_c(not_purchased_df)
+            not_purchased_df=self.get_c(not_purchased_df,uu_sum=uu_sum,ii_sum=mm_sum)
 
+
+        print(not_purchased_df)
         to_return = pd.concat([self.original_df, not_purchased_df], axis=0, ignore_index=True)
         #print(to_return)
 

@@ -52,7 +52,7 @@ class FM_Preprocessing:
         y_tensor = torch.tensor(y.values, dtype=torch.float32).view(-1)
 
         c_values_tensor = torch.tensor(c, dtype=torch.float32)
-        c_values_tensor = torch.where(c_values_tensor < 1, c_values_tensor*500 , c_values_tensor)
+        c_values_tensor = torch.where(c_values_tensor < 1, c_values_tensor*1 , c_values_tensor)
 
         # want to make user_id and product_id mapping dictionary
 

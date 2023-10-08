@@ -64,7 +64,7 @@ class NegativeSampler:
 
             not_purchased_df_all = df[~df['movie_id'].isin(purchased_products)]
             not_purchased_codes = not_purchased_df_all['movie_id'].unique()
-            negative_sample_products=np.random.choice(not_purchased_codes, int(len(not_purchased_codes) *0.1),replace=False)
+            negative_sample_products=np.random.choice(not_purchased_codes, int(len(not_purchased_codes) *0.2),replace=False)
             ns_test=df[df['movie_id'].isin(negative_sample_products)][['movie_id','movie_frequency']]
             ns_test=ns_test.drop_duplicates(subset=['movie_id'],keep='first',inplace=False)
             ns_df=pd.DataFrame()

@@ -13,6 +13,7 @@ from src.data.movielensdata import MovielensData
 from src.tester import Tester
 from src.model.autoencoder import AutoEncoder
 from src.data.autoencoderdataloader import AutoEncoderDataLoader
+from src.model.SVD import SVD
 
 def parser():
 
@@ -20,10 +21,10 @@ def parser():
     parser.add_argument('--num_factors', type=int, default=15, help='Number of factors for FM')
     parser.add_argument('--lr', type=float, default=0.001, help='Learning rate')
     parser.add_argument('--weight_decay', type=float, default=0.1, help='Weight decay(for both FM and autoencoder)')
-    parser.add_argument('--num_epochs_ae', type=int, default=1,    help='Number of epochs')
-    parser.add_argument('--num_epochs_training', type=int, default=100,    help='Number of epochs')
+    parser.add_argument('--num_epochs_ae', type=int, default=50,    help='Number of epochs')
+    parser.add_argument('--num_epochs_training', type=int, default=200,    help='Number of epochs')
 
-    parser.add_argument('--batch_size', type=int, default=2048, help='Batch size')
+    parser.add_argument('--batch_size', type=int, default=1024, help='Batch size')
     parser.add_argument('--ae_batch_size', type=int, default=256, help='Batch size for autoencoder')
     
     parser.add_argument('--num_workers', type=int, default=20, help='Number of workers for dataloader')
@@ -31,15 +32,16 @@ def parser():
     parser.add_argument('--deep_layer_size', type=int, default=128, help='Size of deep layers')
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--save_model', type=bool, default=False)
+    parser.add_argument('--num_eigenvector', type=int, default=300,help='Number of eigenvectors for SVD')
     
-    parser.add_argument('--embedding_type', type=str, default='AE', help='AE or SVD or original')
-    parser.add_argument('--model_type', type=str, default='fm', help='fm or deepfm')
+    parser.add_argument('--embedding_type', type=str, default='original', help='AE or SVD or original')
+    parser.add_argument('--model_type', type=str, default='deepfm', help='fm or deepfm')
     parser.add_argument('--topk', type=int, default=5, help='top k items to recommend')
     parser.add_argument('--fold', type=int, default=1, help='fold number')
     parser.add_argument('--isuniform', type=bool, default=True, help='isuniform')
     parser.add_argument('--ratio_negative', type=int, default=0.2, help='ratio_negative')
     parser.add_argument('--auto_lr', type=float, default=0.001, help='autoencoder learning rate')
-    parser.add_argument('--k', type=int, default=200, help='autoencoder k')
+    parser.add_argument('--k', type=int, default=300, help='autoencoder k')
     args = parser.parse_args("")
     return args
 
@@ -82,6 +84,7 @@ def learn_encoder(args,matrix):
     user_num=user_item_matrix.shape[0]
     movie_num=user_item_matrix.shape[1]
     # diagonal matrix for user
+
     user_x=torch.eye(user_num)
     user_y=torch.from_numpy(user_item_matrix.values)
     # y to float32
@@ -120,9 +123,11 @@ def trainer(args,train_df):
     
     #print(train_df)
     print(train_df)
-    train_preprocess = FM_Preprocessing(train_df)
+    train_preprocess = FM_Preprocessing(args,train_df)
+    
     train_X_tensor=train_preprocess.X_tensor
     train_y_tensor=train_preprocess.y_tensor
+
     train_c_values_tensor=train_preprocess.c_values_tensor
     
     train_dataset=CustomDataLoader(train_X_tensor,train_y_tensor,train_c_values_tensor)
@@ -143,27 +148,52 @@ def trainer(args,train_df):
 if __name__ == '__main__':
     args=parser()
     results=[]
-    for i in range(1,6):
-        args.fold=i
-        train_df ,test,movie_info,user_info,matrix,custom_object=getdata(args)
-        user_encoder, movie_encoder,user_x,movie_x=learn_encoder(args,matrix)
-        user_encoder.eval()
-        movie_encoder.eval()
-        user_embedding=user_encoder.encode(user_x).detach().numpy()
-        movie_embedding=movie_encoder.encode(movie_x).detach().numpy()
+    types=['AE','SVD','original']
+    dict_results={}
+    for t in types:
+        args.embedding_type=t
+        for i in range(1,6):
+            args.fold=i
+            train_df ,test,movie_info,user_info,matrix,custom_object=getdata(args)
+            if args.embedding_type=='SVD':
+                svd=SVD(args)
+                user_embedding,movie_embedding=svd.get_embedding(matrix)
+                train_df=custom_object.embedding_merge(user_embedding=user_embedding,movie_embedding=movie_embedding)
+                print("fold ",i," data loaded")
 
+                model,train_preprocess=trainer(args,train_df)
+                tester=Tester(args,model,train_df,test,movie_info,user_info)
+                result=tester.test(user_embedding=user_embedding,movie_embedding=movie_embedding)
+                results.append(result)
+            elif args.embedding_type=='AE':
+                user_encoder, movie_encoder,user_x,movie_x=learn_encoder(args,matrix)
+                user_encoder.eval()
+                movie_encoder.eval()
+                user_embedding=user_encoder.encode(user_x).detach().numpy()
+                movie_embedding=movie_encoder.encode(movie_x).detach().numpy()
+                train_df=custom_object.embedding_merge(user_embedding=user_embedding,movie_embedding=movie_embedding)
+                
+                print("fold ",i," data loaded")
+                model,train_preprocess=trainer(args,train_df)
+                tester=Tester(args,model,train_df,test,movie_info,user_info)
+                result=tester.test(user_embedding=user_embedding,movie_embedding=movie_embedding)
+                results.append(result)
 
-        if args.embedding_type=='original':
-            train_df=custom_object.infomerge()
-        else:
-            train_df=custom_object.embedding_merge(user_embedding=user_embedding,movie_embedding=movie_embedding)
-        print("fold ",i," data loaded")
-        model,train_preprocess=trainer(args,train_df)
-        tester=Tester(args,model,train_df,test,movie_info,user_info)
-        result=tester.test(user_embedding=user_embedding,movie_embedding=movie_embedding)
-        results.append(result)
+            else :
+                train_df=custom_object.original_merge()
+                print("fold ",i," data loaded")
+                model,train_preprocess=trainer(args,train_df)
+                tester=Tester(args,model,train_df,test,movie_info,user_info)
+                result=tester.test()
+                results.append(result)
+        dict_results[t]=results
     
-    
+    for key in dict_results.keys():
+        print(key," results")
+        for i in range(5):
+            print("fold ",i+1," result:",end=" ")
+            print(dict_results[key][i])
+
     # # drop all columns including user_id and movie_id in str columnname
     
     # #train_df=train_df.loc[:,~train_df.columns.str.contains('user_id')]

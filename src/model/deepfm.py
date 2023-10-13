@@ -26,18 +26,26 @@ class DeepFM(pl.LightningModule):
             input_size = args.deep_layer_size
         
         self.deep_output_layer = nn.Linear(input_size, 1)
-        #self.sig=nn.Sigmoid()
+        self.sig=nn.Sigmoid()
         self.bceloss=nn.BCEWithLogitsLoss()
         
         #self.optimizer = optim.SGD(self.parameters(), lr=lr, weight_decay=weight_decay)
-        #self.loss_func = nn.MSELoss()
-    
-    def loss(self, y_pred, y_true, c_values):
-        #mse = (y_pred - y_true.float()) ** 2
-        bce=self.bceloss(y_pred,y_true.float())
+        self.mse_func = nn.MSELoss()
+    def mse(self, y_pred, y_true):
+        return self.mse_func(y_pred, y_true.float())
 
-        weighted_bce = c_values * bce
-        l2_reg = torch.norm(self.w)**2 + torch.norm(self.v)**2  # L2 regularization
+
+    def l2norm(self, tensor):
+        for param in self.model.parameters():
+            param.data = param.data / torch.norm(param.data, 2)
+        
+
+    def loss(self, y_pred, y_true, c_values):
+        mse =self.mse_func(y_pred, y_true.float())
+        #bce=self.bceloss(y_pred,y_true.float())
+
+        weighted_bce = c_values * mse
+        l2_reg = torch.norm(self.w) + torch.norm(self.v) # L2 regularization
 
         loss_y=torch.mean(weighted_bce) + self.weight_decay * l2_reg
         
@@ -59,7 +67,7 @@ class DeepFM(pl.LightningModule):
         deep_out = self.deep_output_layer(deep_x)
         #deep_out=self.sig(deep_out)
         y_pred=linear_terms + interactions.squeeze() + deep_out.squeeze()
-        
+       
         return y_pred
 
     def training_step(self, batch, batch_idx):

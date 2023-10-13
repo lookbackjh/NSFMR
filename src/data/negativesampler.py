@@ -104,9 +104,10 @@ class NegativeSampler:
 
 
         print(not_purchased_df)
+
         to_return = pd.concat([self.original_df, not_purchased_df], axis=0, ignore_index=True)
         #print(to_return)
-
+        to_return.drop(['user_frequency','movie_frequency'],axis=1,inplace=True)
         print("Negative Sampling Finished")
         return to_return
     

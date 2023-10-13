@@ -17,12 +17,19 @@ class AutoEncoder(pl.LightningModule):
 
         self.encoder=nn.Sequential(
             nn.Linear(self.input_dim, self.args.k),
-            nn.Tanh(),
+            nn.ReLU(),
         )
         self.decoder=nn.Sequential(
             nn.Linear(self.args.k, self.output_dim),
             nn.Sigmoid(),
+
         )
+
+    def l1_regularization(self, x):
+        for params in self.parameters():
+            l1_reg = torch.norm(params, 2)
+        return l1_reg
+
 
     def encode(self, x):
         x=self.encoder(x)
@@ -37,6 +44,7 @@ class AutoEncoder(pl.LightningModule):
         #loss function
     def bceloss(self, y_hat, y):
         loss = nn.MSELoss()
+
         return loss(y_hat, y)
 
     def training_step(self, batch, batch_idx):
@@ -46,10 +54,12 @@ class AutoEncoder(pl.LightningModule):
         #batch size * item_number
 
         loss=self.bceloss(y_hat, y)
+        reg=self.l1_regularization(x)
 
+        total_loss=loss+0.01*reg
 
-        self.log('train_loss', loss, on_epoch=True, prog_bar=True, logger=True)
-        return loss
+        self.log('train_loss', total_loss, on_epoch=True, prog_bar=True, logger=True)
+        return total_loss
     
     #ADAM optimizer
     def configure_optimizers(self):

@@ -20,8 +20,8 @@ class Tester:
 
     def embedding_test_data_generator(self,user_embedding,movie_embedding):
 
-        movie_ids=sorted(self.movie_df['movie_id'].unique())
-        user_ids=sorted(self.original_df['user_id'].unique())
+        movie_ids=sorted(self.train_df['movie_id'].unique())
+        user_ids=sorted(self.train_df['user_id'].unique())
 
         #dictionary that maps movie_id to movie_frequency
         movie_frequency={}
@@ -35,7 +35,7 @@ class Tester:
 
 
         # make a dataframe that has all the user_id, movie_id pairs
-        npuser_movie=np.zeros((len(user_ids)*len(movie_ids),6))
+        npuser_movie=np.zeros((len(user_ids)*len(movie_ids),4))
         npuser_movie=npuser_movie.astype(int)
         npuser_movie[:,0]=np.repeat(user_ids,len(movie_ids))
         npuser_movie[:,1]=np.tile(movie_ids,len(user_ids))
@@ -44,11 +44,9 @@ class Tester:
         # 3rd column is c
         npuser_movie[:,3]=1
         # 4th column is user_frequency
-        npuser_movie[:,4]=[user_frequency[i] for i in npuser_movie[:,0]]
-        # 5th column is movie_frequency
-        npuser_movie[:,5]=[movie_frequency[i] for i in npuser_movie[:,1]]
 
-        user_movie=pd.DataFrame(npuser_movie,columns=['user_id','movie_id','target','c','user_frequency','movie_frequency'])
+        user_movie=pd.DataFrame(npuser_movie,columns=['user_id','movie_id','target','c'])
+
 
         c=CustomOneHot(self.args,user_movie,self.movie_df,self.user_df)
         user_list=user_movie['user_id']
@@ -160,13 +158,20 @@ class Tester:
         print(user_df)
         for customerid in tqdm.tqdm(user_list[:]):
 
-            #cur_customer_id='user_id_'+str(customerid)
-            temp=user_df[user_df['user_id']==customerid]
+            if self.args.embedding_type=='original':
+                cur_customer_id='user_id_'+str(customerid)
+                temp=user_df[user_df[cur_customer_id]==1]
+                X=temp.drop(['c','target'],axis=1).values
+
+
+            else:
+                temp=user_df[user_df['user_id']==customerid]
+                X=temp.drop(['user_id','c','target'],axis=1).values
             #print(temp)
             c_values=temp['c'].values
             y=temp['target'].values
-            
-            X=temp.drop(['user_id','c','target'],axis=1).values
+
+           
             X=X.astype(float)
             y=y.astype(float)
             X_tensor = torch.tensor(X, dtype=torch.float32)
@@ -181,10 +186,10 @@ class Tester:
             print("customer id: ",customerid, end=" ")
             ml=copy.deepcopy(movie_list)    
             ml=np.array(ml)
-            print(ml)
+            #print(ml)
             # reorder movie_list
             ml=ml[topidx]
-            print(ml)
+            #print(ml)
             cur_userslist=np.array(self.original_df[self.original_df['user_id']==customerid]['movie_id'].unique())
 
             # erase the things in ml that are in cur_userslist without changing the order

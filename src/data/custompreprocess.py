@@ -7,6 +7,7 @@ class CustomOneHot:
         self.ns_df=ns_df
         self.movie_df=movie_df
         self.user_df=user_df
+
         pass
 
     def movieonehot(self):
@@ -40,9 +41,6 @@ class CustomOneHot:
             tmparray[i,dic_movie['movie_id']]=k[dic_ns['movie_id']]
 
             #set user_frequency
-            tmparray[i,dic_movie['user_frequency']]=k[dic_ns['user_frequency']]
-            #set movie_frequency
-            tmparray[i,dic_movie['movie_frequency']]=k[dic_ns['movie_frequency']]
             # append to pd_list
 
         # to dataframe
@@ -69,8 +67,8 @@ class CustomOneHot:
         userinfoadded=pd.get_dummies(columns=['user_id'],data=userinfoadded)
 
         #print(userinfoadded)
-        userinfoadded.drop(['user_frequency'],axis=1,inplace=True)
-        userinfoadded.drop(['movie_frequency'],axis=1,inplace=True)
+        # userinfoadded.drop(['user_frequency'],axis=1,inplace=True)
+        # userinfoadded.drop(['movie_frequency'],axis=1,inplace=True)
 
         return userinfoadded
 
@@ -84,8 +82,9 @@ class CustomOneHot:
         user_embedding_df=pd.DataFrame()
         movie_embedding_df=pd.DataFrame()
 
-        user_embedding_df['user_id']=range(1,user_embedding.shape[0]+1)
-        movie_embedding_df['movie_id']=range(1,movie_embedding.shape[0]+1)
+        user_embedding_df['user_id']=sorted(self.ns_df['user_id'].unique())
+
+        movie_embedding_df['movie_id']=sorted(self.ns_df['movie_id'].unique())
 
         for i in range(user_embedding.shape[1]):
             user_embedding_df['user_embedding_'+str(i)]=user_embedding[:,i]
@@ -93,17 +92,18 @@ class CustomOneHot:
         for i in range(movie_embedding.shape[1]):
             movie_embedding_df['movie_embedding_'+str(i)]=movie_embedding[:,i]
         
-        user_emb_included_df=pd.merge(self.ns_df,user_embedding_df, on='user_id',how='left')
-        movie_emb_included_df=pd.merge(user_emb_included_df, movie_embedding_df,on='movie_id',how='left')
+        
+        movie_emb_included_df=pd.merge(self.ns_df.set_index('movie_id'), movie_embedding_df,on='movie_id',how='left')
+        user_emb_included_df=pd.merge(movie_emb_included_df.set_index('user_id'),user_embedding_df, on='user_id',how='left')
+
 
         
-        
-        movieinfoadded=pd.merge(movie_emb_included_df,self.movie_df,on='movie_id',how='left')
+        movieinfoadded=pd.merge(user_emb_included_df.set_index('movie_id'),self.movie_df,on='movie_id',how='left')
 
-        userinfoadded=pd.merge(movieinfoadded,self.user_df,on='user_id',how='left')
+        userinfoadded=pd.merge(movieinfoadded.set_index('user_id'),self.user_df,on='user_id',how='left')
 
-        userinfoadded.drop(['user_frequency'],axis=1,inplace=True)
-        userinfoadded.drop(['movie_frequency'],axis=1,inplace=True)
+        # userinfoadded.drop(['user_frequency'],axis=1,inplace=True)
+        # userinfoadded.drop(['movie_frequency'],axis=1,inplace=True)
 
         return userinfoadded
 

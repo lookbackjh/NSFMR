@@ -43,7 +43,7 @@ class FM_Preprocessing:
         # X = preprocess_positive(X) # pls preprocess postive either
         #y = self.df[self.target_col]
         c = self.df['c']
-        X=X.drop(['target','c'],axis=1,inplace=False)
+        X=X.drop(['target','c','user_id','movie_id'],axis=1,inplace=False)
         y=self.df['target']
         # there are booleans in dataframe X and I want to change dtype of the data to float
         X = X.astype(float)

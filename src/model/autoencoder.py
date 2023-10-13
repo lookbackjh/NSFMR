@@ -16,18 +16,18 @@ class AutoEncoder(pl.LightningModule):
 
 
         self.encoder=nn.Sequential(
-            nn.Linear(self.input_dim, self.args.k*2),
-            nn.ReLU(),
-            nn.Linear(self.args.k*2, self.args.k),
-            nn.ReLU()
+            nn.Linear(self.input_dim, self.args.k),
+            nn.Tanh(),
         )
         self.decoder=nn.Sequential(
-            nn.Linear(self.args.k, self.args.k*2),
-            nn.ReLU(),
-            nn.Linear(self.args.k*2, self.output_dim),
-            nn.ReLU()
+            nn.Linear(self.args.k, self.output_dim),
+            nn.Sigmoid(),
         )
-           
+
+    def encode(self, x):
+        x=self.encoder(x)
+        return x
+    
 
     def forward(self, x):
         x=self.encoder(x)
@@ -35,7 +35,7 @@ class AutoEncoder(pl.LightningModule):
         return x
 
         #loss function
-    def loss(self, y_hat, y):
+    def bceloss(self, y_hat, y):
         loss = nn.MSELoss()
         return loss(y_hat, y)
 
@@ -45,13 +45,15 @@ class AutoEncoder(pl.LightningModule):
         y_hat=self.forward(x)
         #batch size * item_number
 
-        loss=self.loss(y_hat, y)
-        self.log('train_loss', loss)
-        pass
+        loss=self.bceloss(y_hat, y)
+
+
+        self.log('train_loss', loss, on_epoch=True, prog_bar=True, logger=True)
+        return loss
     
     #ADAM optimizer
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.args.lr, weight_decay=self.args.weight_decay)
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.args.auto_lr, weight_decay=self.args.weight_decay)
         return optimizer
     
 

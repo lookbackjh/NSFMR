@@ -1,7 +1,7 @@
 import torch
 import pytorch_lightning as pl
 from src.model.deepfm import DeepFM
-from src.data.customdata import CustomData
+from data.customdataloader import CustomData
 import pandas as pd
 import numpy as np
 import tqdm

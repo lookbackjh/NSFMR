@@ -19,7 +19,7 @@ def parser():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--num_factors', type=int, default=15, help='Number of factors for FM')
-    parser.add_argument('--lr', type=float, default=0.001, help='Learning rate')
+    parser.add_argument('--lr', type=float, default=0.01, help='Learning rate')
     parser.add_argument('--weight_decay', type=float, default=0.1, help='Weight decay(for both FM and autoencoder)')
     parser.add_argument('--num_epochs_ae', type=int, default=50,    help='Number of epochs')
     parser.add_argument('--num_epochs_training', type=int, default=200,    help='Number of epochs')
@@ -32,7 +32,7 @@ def parser():
     parser.add_argument('--deep_layer_size', type=int, default=128, help='Size of deep layers')
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--save_model', type=bool, default=False)
-    parser.add_argument('--num_eigenvector', type=int, default=300,help='Number of eigenvectors for SVD')
+    parser.add_argument('--num_eigenvector', type=int, default=50,help='Number of eigenvectors for SVD')
     
     parser.add_argument('--embedding_type', type=str, default='original', help='AE or SVD or original')
     parser.add_argument('--model_type', type=str, default='deepfm', help='fm or deepfm')
@@ -41,7 +41,7 @@ def parser():
     parser.add_argument('--isuniform', type=bool, default=True, help='isuniform')
     parser.add_argument('--ratio_negative', type=int, default=0.2, help='ratio_negative')
     parser.add_argument('--auto_lr', type=float, default=0.001, help='autoencoder learning rate')
-    parser.add_argument('--k', type=int, default=300, help='autoencoder k')
+    parser.add_argument('--k', type=int, default=50, help='autoencoder k')
     args = parser.parse_args("")
     return args
 
@@ -147,14 +147,18 @@ def trainer(args,train_df):
 
 if __name__ == '__main__':
     args=parser()
-    results=[]
-    types=['AE','SVD','original']
-    dict_results={}
+   
+    types=['AE','SVD']
+    svdresults=[]
+    aeresults=[]
+    originalresults=[]
     for t in types:
         args.embedding_type=t
+
         for i in range(1,6):
             args.fold=i
             train_df ,test,movie_info,user_info,matrix,custom_object=getdata(args)
+            
             if args.embedding_type=='SVD':
                 svd=SVD(args)
                 user_embedding,movie_embedding=svd.get_embedding(matrix)
@@ -164,7 +168,7 @@ if __name__ == '__main__':
                 model,train_preprocess=trainer(args,train_df)
                 tester=Tester(args,model,train_df,test,movie_info,user_info)
                 result=tester.test(user_embedding=user_embedding,movie_embedding=movie_embedding)
-                results.append(result)
+                svdresults.append(result)
             elif args.embedding_type=='AE':
                 user_encoder, movie_encoder,user_x,movie_x=learn_encoder(args,matrix)
                 user_encoder.eval()
@@ -177,7 +181,8 @@ if __name__ == '__main__':
                 model,train_preprocess=trainer(args,train_df)
                 tester=Tester(args,model,train_df,test,movie_info,user_info)
                 result=tester.test(user_embedding=user_embedding,movie_embedding=movie_embedding)
-                results.append(result)
+            
+                aeresults.append(result)
 
             else :
                 train_df=custom_object.original_merge()
@@ -185,15 +190,19 @@ if __name__ == '__main__':
                 model,train_preprocess=trainer(args,train_df)
                 tester=Tester(args,model,train_df,test,movie_info,user_info)
                 result=tester.test()
-                results.append(result)
-        dict_results[t]=results
+                originalresults.append(result)
+
     
-    for key in dict_results.keys():
+    for key in ['AE','SVD']:
         print(key," results")
         for i in range(5):
             print("fold ",i+1," result:",end=" ")
-            print(dict_results[key][i])
-
+            if key=='AE':
+                print(aeresults[i])
+            elif key=='SVD':
+                print(svdresults[i])
+            else:
+                print(originalresults[i])
     # # drop all columns including user_id and movie_id in str columnname
     
     # #train_df=train_df.loc[:,~train_df.columns.str.contains('user_id')]

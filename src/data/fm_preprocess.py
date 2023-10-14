@@ -7,7 +7,8 @@ import tqdm
 import random
 from copy import deepcopy
 class FM_Preprocessing:
-    def __init__(self, df, target_col='target', num_epochs=10):
+    def __init__(self, args,df, target_col='target', num_epochs=10):
+        self.args=args
         self.df = df
         self.target_col = target_col
         self.num_epochs = num_epochs
@@ -43,7 +44,10 @@ class FM_Preprocessing:
         # X = preprocess_positive(X) # pls preprocess postive either
         #y = self.df[self.target_col]
         c = self.df['c']
-        X=X.drop(['target','c'],axis=1,inplace=False)
+        if self.args.embedding_type=='original':
+            X=X.drop(['target','c'],axis=1,inplace=False)
+        else:
+            X=X.drop(['target','c','user_id','movie_id'],axis=1,inplace=False)
         y=self.df['target']
         # there are booleans in dataframe X and I want to change dtype of the data to float
         X = X.astype(float)

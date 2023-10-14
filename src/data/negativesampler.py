@@ -6,9 +6,10 @@ class NegativeSampler:
     #  takes input of original dataframe and movie info
     #  make a function that returns negative sampled data
 
-    def __init__(self, original_df, seed) -> None:
+    def __init__(self, args,original_df) -> None:
+        self.args=args
         self.original_df = original_df
-        self.seed=np.random.seed(seed)
+        self.seed=np.random.seed(args.seed)
         self.original_df.drop(columns=['timestamp','rating'], axis=1, inplace=True)
         self.original_df['target']=1
         self.original_df['c']=1
@@ -26,7 +27,7 @@ class NegativeSampler:
 
     # function taht calculates the c value for each customer and product
     # the higher beta means more weiht on the product frequency, the higher alpha means more weight on the customer frequency
-    def get_c(self,df,uu_sum,ii_sum, alpha=.5, beta=.5, gamma=.5, c_zero=.5):
+    def get_c(self,df,uu_sum,ii_sum, alpha=.5, beta=.5, gamma=.5, c_zero=1):
         UF = np.array(df["user_frequency"].astype("float"), dtype=float)
         UF /= uu_sum
         IF = np.array(df["movie_frequency"].astype("float"), dtype=float)
@@ -40,7 +41,7 @@ class NegativeSampler:
 
         return c_appended_df
     
-    def negativesample(self,checkuniform=False):
+    def negativesample(self,isuniform=False):
 
         unique_customers = self.original_df['user_id'].unique()
         df=self.original_df
@@ -64,7 +65,7 @@ class NegativeSampler:
 
             not_purchased_df_all = df[~df['movie_id'].isin(purchased_products)]
             not_purchased_codes = not_purchased_df_all['movie_id'].unique()
-            negative_sample_products=np.random.choice(not_purchased_codes, int(len(not_purchased_codes) *0.2),replace=False)
+            negative_sample_products=np.random.choice(not_purchased_codes, int(len(not_purchased_codes) *self.args.ratio_negative),replace=False)
             ns_test=df[df['movie_id'].isin(negative_sample_products)][['movie_id','movie_frequency']]
             ns_test=ns_test.drop_duplicates(subset=['movie_id'],keep='first',inplace=False)
             ns_df=pd.DataFrame()
@@ -94,7 +95,7 @@ class NegativeSampler:
         uu_sum=np.sum(uu.tolist())
 
         
-        if checkuniform:
+        if isuniform:
             not_purchased_df['c'] = 1
             
         
@@ -103,9 +104,10 @@ class NegativeSampler:
 
 
         print(not_purchased_df)
+
         to_return = pd.concat([self.original_df, not_purchased_df], axis=0, ignore_index=True)
         #print(to_return)
-
+        to_return.drop(['user_frequency','movie_frequency'],axis=1,inplace=True)
         print("Negative Sampling Finished")
         return to_return
     

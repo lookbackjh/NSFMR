@@ -22,7 +22,7 @@ def parser():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--num_factors', type=int, default=15, help='Number of factors for FM')
-    parser.add_argument('--lr', type=float, default=0.01, help='Learning rate')
+    parser.add_argument('--lr', type=float, default=0.001, help='Learning rate for fm training')
     parser.add_argument('--weight_decay', type=float, default=0.1, help='Weight decay(for both FM and autoencoder)')
     parser.add_argument('--num_epochs_ae', type=int, default=100,    help='Number of epochs')
     parser.add_argument('--num_epochs_training', type=int, default=200,    help='Number of epochs')
@@ -160,7 +160,7 @@ def trainer(args,train_df,emb_train_df):
 if __name__ == '__main__':
     args=parser()
    
-    types=['SVD','AE']
+    types=['AE','SVD']
     svdresults=[]
     aeresults=[]
     originalresults=[]
@@ -200,7 +200,7 @@ if __name__ == '__main__':
                 movie_encoder.eval()
                 user_embedding=user_encoder.encode(user_x).detach().numpy()
                 movie_embedding=movie_encoder.encode(movie_x).detach().numpy()
-                train_df=custom_object.embedding_merge(user_embedding=user_embedding,movie_embedding=movie_embedding)
+                emb_train_df=custom_object.embedding_merge(user_embedding=user_embedding,movie_embedding=movie_embedding)
                 
                 print("fold ",i," data loaded")
                 train_df=custom_object.original_merge()

@@ -24,14 +24,14 @@ class Tester:
         user_ids=sorted(self.train_df['user_id'].unique())
 
         #dictionary that maps movie_id to movie_frequency
-        movie_frequency={}
-        for i in movie_ids:
-            movie_frequency[i]=len(self.original_df[self.original_df['movie_id']==i])
+        # movie_frequency={}
+        # for i in movie_ids:
+        #     movie_frequency[i]=len(self.original_df[self.original_df['movie_id']==i])
         
-        #dictionary that maps user_id to user_frequency
-        user_frequency={}
-        for i in user_ids:
-            user_frequency[i]=len(self.original_df[self.original_df['user_id']==i])
+        # #dictionary that maps user_id to user_frequency
+        # user_frequency={}
+        # for i in user_ids:
+        #     user_frequency[i]=len(self.original_df[self.original_df['user_id']==i])
 
 
         # make a dataframe that has all the user_id, movie_id pairs
@@ -77,8 +77,8 @@ class Tester:
 
     def test_data_generator(self):
         # want to make a dataframe that has user_id, movie_id and for every user_id, movie_id pair 
-        movie_ids=sorted(self.movie_df['movie_id'].unique())
-        user_ids=sorted(self.original_df['user_id'].unique())
+        movie_ids=sorted(self.train_df['movie_id'].unique())
+        user_ids=sorted(self.train_df['user_id'].unique())
 
         #dictionary that maps movie_id to movie_frequency
         movie_frequency={}
@@ -146,38 +146,44 @@ class Tester:
     
     def test(self,user_embedding=None,movie_embedding=None):
         
-        if self.args.embedding_type=='original':
-            user_df,user_list,movie_list=self.test_data_generator()
-        else:
-            user_df,user_list,movie_list=self.embedding_test_data_generator(user_embedding,movie_embedding) 
+        #if self.args.embedding_type=='original':
+        
+        
+        original_df,user_list,movie_list=self.test_data_generator()
+        
+        user_df,user_list,movie_list=self.embedding_test_data_generator(user_embedding,movie_embedding) 
         #fm=FM_Preprocessing(user_df)
         user_list=user_list.astype(int).unique().tolist()
         #movie_list=movie_list.tolist()
         self.model.eval()
         precisions=[]
-        print(user_df)
         for customerid in tqdm.tqdm(user_list[:]):
 
-            if self.args.embedding_type=='original':
-                cur_customer_id='user_id_'+str(customerid)
-                temp=user_df[user_df[cur_customer_id]==1]
-                X=temp.drop(['c','target'],axis=1).values
+            #if self.args.embedding_type=='original':
+            cur_customer_id='user_id_'+str(customerid)
+            temp=original_df[original_df[cur_customer_id]==1]
+            X_org=temp.drop(['c','target'],axis=1).values
 
 
-            else:
-                temp=user_df[user_df['user_id']==customerid]
-                X=temp.drop(['user_id','c','target'],axis=1).values
+            temp=user_df[user_df['user_id']==customerid]
+            X_emb=temp.drop(['user_id','c','target'],axis=1).values
             #print(temp)
             c_values=temp['c'].values
             y=temp['target'].values
 
            
-            X=X.astype(float)
+            X_emb=X_emb.astype(float)
+            X_org=X_org.astype(float)
+
             y=y.astype(float)
-            X_tensor = torch.tensor(X, dtype=torch.float32)
+            X_tensor_org = torch.tensor(X_org, dtype=torch.float32)
+            X_tensor_emb = torch.tensor(X_emb, dtype=torch.float32)
             y_tensor = torch.tensor(y, dtype=torch.float32).view(-1)
             c_values_tensor = torch.tensor(c_values, dtype=torch.float32)
-            result=self.model.forward(X_tensor)
+
+
+
+            result=self.model.forward(X_tensor_org,X_tensor_emb)
             topidx=torch.argsort(result,descending=True)[:]
             #swith tensor to list
             topidx=topidx.tolist()

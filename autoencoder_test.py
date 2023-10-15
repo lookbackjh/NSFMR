@@ -17,11 +17,14 @@ from src.model.SVD import SVD
 
 def parser():
 
+    # print 3+ 3
+
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--num_factors', type=int, default=15, help='Number of factors for FM')
     parser.add_argument('--lr', type=float, default=0.01, help='Learning rate')
     parser.add_argument('--weight_decay', type=float, default=0.1, help='Weight decay(for both FM and autoencoder)')
-    parser.add_argument('--num_epochs_ae', type=int, default=50,    help='Number of epochs')
+    parser.add_argument('--num_epochs_ae', type=int, default=100,    help='Number of epochs')
     parser.add_argument('--num_epochs_training', type=int, default=200,    help='Number of epochs')
 
     parser.add_argument('--batch_size', type=int, default=1024, help='Batch size')
@@ -32,7 +35,7 @@ def parser():
     parser.add_argument('--deep_layer_size', type=int, default=128, help='Size of deep layers')
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--save_model', type=bool, default=False)
-    parser.add_argument('--num_eigenvector', type=int, default=50,help='Number of eigenvectors for SVD')
+    parser.add_argument('--num_eigenvector', type=int, default=10,help='Number of eigenvectors for SVD')
     
     parser.add_argument('--embedding_type', type=str, default='original', help='AE or SVD or original')
     parser.add_argument('--model_type', type=str, default='deepfm', help='fm or deepfm')
@@ -40,8 +43,8 @@ def parser():
     parser.add_argument('--fold', type=int, default=1, help='fold number')
     parser.add_argument('--isuniform', type=bool, default=True, help='isuniform')
     parser.add_argument('--ratio_negative', type=int, default=0.2, help='ratio_negative')
-    parser.add_argument('--auto_lr', type=float, default=0.001, help='autoencoder learning rate')
-    parser.add_argument('--k', type=int, default=50, help='autoencoder k')
+    parser.add_argument('--auto_lr', type=float, default=0.01, help='autoencoder learning rate')
+    parser.add_argument('--k', type=int, default=10, help='autoencoder k')
     args = parser.parse_args("")
     return args
 
@@ -118,25 +121,34 @@ def learn_encoder(args,matrix):
     return user_autoencoder,movie_autoencoder, user_x,movie_x
 
 
-def trainer(args,train_df):
+def trainer(args,train_df,emb_train_df):
     # trainer for each fold
     
     #print(train_df)
-    print(train_df)
+    #print(train_df)
     train_preprocess = FM_Preprocessing(args,train_df)
+
+    emb_preprocess=FM_Preprocessing(args,emb_train_df)
+
     
     train_X_tensor=train_preprocess.X_tensor
     train_y_tensor=train_preprocess.y_tensor
 
     train_c_values_tensor=train_preprocess.c_values_tensor
     
-    train_dataset=CustomDataLoader(train_X_tensor,train_y_tensor,train_c_values_tensor)
+    emb_X_tensor=emb_preprocess.X_tensor
+
+
+    train_dataset=CustomDataLoader(train_X_tensor,train_y_tensor,train_c_values_tensor,emb_X_tensor)
     train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
     
+    naive_num_features=train_X_tensor.shape[1]
+    emb_num_features=emb_X_tensor.shape[1]    
+
     if args.model_type=='fm':
         model=FactorizationMachine(train_preprocess.num_features,args.num_factors,args)
     elif args.model_type=='deepfm':
-        model=DeepFM(train_preprocess.num_features,args.num_factors,args)
+        model=DeepFM(naive_num_features,emb_num_features,args.num_factors,args)
 
     #model=DeepFM(preprocess.num_features,args.num_factors,args)
     pl.trainer.Trainer(max_epochs=args.num_epochs_training).fit(model,train_dataloader)
@@ -148,7 +160,7 @@ def trainer(args,train_df):
 if __name__ == '__main__':
     args=parser()
    
-    types=['AE','SVD']
+    types=['SVD','AE']
     svdresults=[]
     aeresults=[]
     originalresults=[]
@@ -160,15 +172,28 @@ if __name__ == '__main__':
             train_df ,test,movie_info,user_info,matrix,custom_object=getdata(args)
             
             if args.embedding_type=='SVD':
+                
                 svd=SVD(args)
                 user_embedding,movie_embedding=svd.get_embedding(matrix)
-                train_df=custom_object.embedding_merge(user_embedding=user_embedding,movie_embedding=movie_embedding)
-                print("fold ",i," data loaded")
 
-                model,train_preprocess=trainer(args,train_df)
+                # emb_train df is embedded version of train_df
+                emb_train_df=custom_object.embedding_merge(user_embedding=user_embedding,movie_embedding=movie_embedding)
+                print("fold ",i," data loaded")
+                # train_df is original version of train_df
+                train_df=custom_object.original_merge()
+                model,train_preprocess=trainer(args,train_df,emb_train_df)
+                
+                
+                
+                
                 tester=Tester(args,model,train_df,test,movie_info,user_info)
                 result=tester.test(user_embedding=user_embedding,movie_embedding=movie_embedding)
                 svdresults.append(result)
+
+
+
+
+
             elif args.embedding_type=='AE':
                 user_encoder, movie_encoder,user_x,movie_x=learn_encoder(args,matrix)
                 user_encoder.eval()
@@ -178,23 +203,18 @@ if __name__ == '__main__':
                 train_df=custom_object.embedding_merge(user_embedding=user_embedding,movie_embedding=movie_embedding)
                 
                 print("fold ",i," data loaded")
-                model,train_preprocess=trainer(args,train_df)
+                train_df=custom_object.original_merge()
+                model,train_preprocess=trainer(args,train_df,emb_train_df)
+
+                
                 tester=Tester(args,model,train_df,test,movie_info,user_info)
                 result=tester.test(user_embedding=user_embedding,movie_embedding=movie_embedding)
-            
-                aeresults.append(result)
+                svdresults.append(result)
 
-            else :
-                train_df=custom_object.original_merge()
-                print("fold ",i," data loaded")
-                model,train_preprocess=trainer(args,train_df)
-                tester=Tester(args,model,train_df,test,movie_info,user_info)
-                result=tester.test()
-                originalresults.append(result)
 
     
     for key in ['AE','SVD']:
-        print(key," results")
+        print(key," results embedding only for the deep part")
         for i in range(5):
             print("fold ",i+1," result:",end=" ")
             if key=='AE':

@@ -61,16 +61,19 @@ class CustomOneHot:
         userinfoadded=pd.merge(movieinfoadded,self.user_df,on='user_id',how='left')
         
         #drop movie_id
-        userinfoadded.drop(['movie_id'],axis=1,inplace=True)
+        #userinfoadded.drop(['movie_id'],axis=1,inplace=True)
+        userids=userinfoadded['user_id']
 
-        #pd.getdummies on user_id
-        userinfoadded=pd.get_dummies(columns=['user_id'],data=userinfoadded)
+        #pd.getdummies on user_id do make sure not to drop user_id)
+        user_df=pd.get_dummies(columns=['user_id'],data=userinfoadded)
+        user_df['user_id']=userids
+
 
         #print(userinfoadded)
         # userinfoadded.drop(['user_frequency'],axis=1,inplace=True)
         # userinfoadded.drop(['movie_frequency'],axis=1,inplace=True)
 
-        return userinfoadded
+        return user_df
 
     def embedding_merge(self,user_embedding,movie_embedding):
 

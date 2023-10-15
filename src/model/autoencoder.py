@@ -16,17 +16,17 @@ class AutoEncoder(pl.LightningModule):
 
 
         self.encoder=nn.Sequential(
-            nn.Linear(self.input_dim, self.args.k*2),
+            nn.Linear(self.input_dim,100),
 
 
             nn.ReLU(),
-            nn.Linear(self.args.k*2, self.args.k),
+            nn.Linear(100, self.args.k),
             nn.ReLU(),
         )
         self.decoder=nn.Sequential(
-            nn.Linear(self.args.k, self.args.k*2),
+            nn.Linear(self.args.k, 100),
             nn.ReLU(),
-            nn.Linear(self.args.k*2, self.output_dim),
+            nn.Linear(100, self.output_dim),
             nn.Sigmoid(),
 
         )

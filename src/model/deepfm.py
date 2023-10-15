@@ -4,10 +4,11 @@ import pytorch_lightning as pl
 from typing import Any
 
 class DeepFM(pl.LightningModule):
-    def __init__(self, num_features, num_factors, args):
+    def __init__(self, num_features, emb_num_features,num_factors, args):
         super(DeepFM, self).__init__()
         self.num_features = num_features
         self.num_factors = num_factors
+        self.emb_num_features=emb_num_features
         self.weight_decay = args.weight_decay
         self.lr=args.lr
         
@@ -17,7 +18,7 @@ class DeepFM(pl.LightningModule):
         self.v = nn.Parameter(torch.randn(num_features, num_factors))
         
         # Deep part
-        input_size = num_features  # Adjust this line to match the shape of your input data
+        input_size = emb_num_features  # Adjust this line to match the shape of your input data
         self.deep_layers = nn.ModuleList()
         for i in range(args.num_deep_layers):
             self.deep_layers.append(nn.Linear(input_size, args.deep_layer_size))
@@ -26,14 +27,24 @@ class DeepFM(pl.LightningModule):
             input_size = args.deep_layer_size
         
         self.deep_output_layer = nn.Linear(input_size, 1)
-        self.sig=nn.Sigmoid()
-        self.bceloss=nn.BCEWithLogitsLoss()
+        #self.sig=nn.Sigmoid()
+        
+        
+        self.bceloss=nn.BCEWithLogitsLoss() # since bcewith logits is used, we don't need to add sigmoid layer in the end
         
         #self.optimizer = optim.SGD(self.parameters(), lr=lr, weight_decay=weight_decay)
         self.mse_func = nn.MSELoss()
     def mse(self, y_pred, y_true):
         return self.mse_func(y_pred, y_true.float())
 
+
+    def deep_part(self, x):
+        deep_x = x
+        for layer in self.deep_layers:
+            deep_x = layer(deep_x)
+        deep_out = self.deep_output_layer(deep_x)
+        return deep_out
+    
 
     def l2norm(self, tensor):
         for param in self.model.parameters():
@@ -50,29 +61,32 @@ class DeepFM(pl.LightningModule):
         loss_y=torch.mean(weighted_bce) + self.weight_decay * l2_reg
         
         return loss_y
-
-    def forward(self, x):
-        # FM part
+    
+    def fm_part(self, x):
         linear_terms = torch.matmul(x, self.w)+self.bias
         interactions = 0.5 * torch.sum(
             torch.matmul(x, self.v) ** 2 - torch.matmul(x ** 2, self.v ** 2),
             dim=1,
             keepdim=True
         )
+        return linear_terms + interactions.squeeze()
+
+    def forward(self, x,emb_x):
+        # FM part
+        fm_part=self.fm_part(x)
+        deep_part=self.deep_part(emb_x)
+
         
         # Deep part
-        deep_x = x  # No need to flatten
-        for layer in self.deep_layers:
-            deep_x = layer(deep_x)
-        deep_out = self.deep_output_layer(deep_x)
+
         #deep_out=self.sig(deep_out)
-        y_pred=linear_terms + interactions.squeeze() + deep_out.squeeze()
+        y_pred=fm_part+deep_part.squeeze()
        
         return y_pred
 
     def training_step(self, batch, batch_idx):
-        x,y,c_values=batch
-        y_pred=self.forward(x)
+        x,y,c_values,emb_x=batch
+        y_pred=self.forward(x,emb_x)
         loss_y=self.loss(y_pred, y,c_values)
         self.log('train_loss', loss_y, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         return loss_y

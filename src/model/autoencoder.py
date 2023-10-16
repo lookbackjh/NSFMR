@@ -27,7 +27,6 @@ class AutoEncoder(pl.LightningModule):
             nn.Linear(self.args.k, 100),
             nn.ReLU(),
             nn.Linear(100, self.output_dim),
-            nn.Sigmoid(),
 
         )
 
@@ -49,7 +48,7 @@ class AutoEncoder(pl.LightningModule):
 
         #loss function
     def bceloss(self, y_hat, y):
-        loss = nn.MSELoss()
+        loss = nn.BCEWithLogitsLoss()
 
         return loss(y_hat, y)
 

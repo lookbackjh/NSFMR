@@ -17,12 +17,9 @@ from src.model.SVD import SVD
 
 def parser():
 
-    # print 3+ 3
-
-
     parser = argparse.ArgumentParser()
     parser.add_argument('--num_factors', type=int, default=15, help='Number of factors for FM')
-    parser.add_argument('--lr', type=float, default=0.001, help='Learning rate for fm training')
+    parser.add_argument('--lr', type=float, default=0.005, help='Learning rate for fm training')
     parser.add_argument('--weight_decay', type=float, default=0.1, help='Weight decay(for both FM and autoencoder)')
     parser.add_argument('--num_epochs_ae', type=int, default=100,    help='Number of epochs')
     parser.add_argument('--num_epochs_training', type=int, default=200,    help='Number of epochs')
@@ -35,7 +32,7 @@ def parser():
     parser.add_argument('--deep_layer_size', type=int, default=128, help='Size of deep layers')
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--save_model', type=bool, default=False)
-    parser.add_argument('--num_eigenvector', type=int, default=10,help='Number of eigenvectors for SVD')
+   
     
     parser.add_argument('--embedding_type', type=str, default='original', help='AE or SVD or original')
     parser.add_argument('--model_type', type=str, default='deepfm', help='fm or deepfm')
@@ -45,6 +42,7 @@ def parser():
     parser.add_argument('--ratio_negative', type=int, default=0.2, help='ratio_negative')
     parser.add_argument('--auto_lr', type=float, default=0.01, help='autoencoder learning rate')
     parser.add_argument('--k', type=int, default=10, help='autoencoder k')
+    parser.add_argument('--num_eigenvector', type=int, default=10,help='Number of eigenvectors for SVD')
     args = parser.parse_args("")
     return args
 
@@ -209,7 +207,7 @@ if __name__ == '__main__':
                 
                 tester=Tester(args,model,train_df,test,movie_info,user_info)
                 result=tester.test(user_embedding=user_embedding,movie_embedding=movie_embedding)
-                svdresults.append(result)
+                aeresults.append(result)
 
 
     

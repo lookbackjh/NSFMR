@@ -52,7 +52,7 @@ class FM_Preprocessing:
         # there are booleans in dataframe X and I want to change dtype of the data to float
         X = X.astype(float)
 
-        X_tensor = torch.tensor(X.values, dtype=torch.float32)
+        X_tensor = torch.tensor(X.values, dtype=torch.int64)
         y_tensor = torch.tensor(y.values, dtype=torch.float32).view(-1)
 
         c_values_tensor = torch.tensor(c, dtype=torch.float32)

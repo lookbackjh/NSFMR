@@ -176,14 +176,14 @@ class Tester:
             X_org=X_org.astype(float)
 
             y=y.astype(float)
-            X_tensor_org = torch.tensor(X_org, dtype=torch.float32)
+            X_tensor_org= torch.tensor(X_org, dtype=torch.float32)
             X_tensor_emb = torch.tensor(X_emb, dtype=torch.float32)
             y_tensor = torch.tensor(y, dtype=torch.float32).view(-1)
             c_values_tensor = torch.tensor(c_values, dtype=torch.float32)
 
 
 
-            result=self.model.forward(X_tensor_org,X_tensor_emb)
+            result=self.model.forward(X_tensor_org,X_tensor_org)
             topidx=torch.argsort(result,descending=True)[:]
             #swith tensor to list
             topidx=topidx.tolist()

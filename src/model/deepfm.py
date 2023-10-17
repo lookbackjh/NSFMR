@@ -11,31 +11,29 @@ class DeepFM(pl.LightningModule):
         self.emb_num_features=emb_num_features
         self.weight_decay = args.weight_decay
         self.lr=args.lr
+        self.args=args
         
+        # embedding part
+        self.embedding=nn.Embedding(self.num_features,args.emb_dim)
+
         # FM part
         self.w = nn.Parameter(torch.randn(num_features))
         self.bias=nn.Parameter(torch.randn(1))
-        self.v = nn.Parameter(torch.randn(num_features, num_factors))
+        self.v = nn.Parameter(torch.randn(args.emb_dim, num_factors))
         
         # Deep part
-        input_size = emb_num_features  # Adjust this line to match the shape of your input data
+        input_size = args.emb_dim*num_features  # Adjust this line to match the shape of your input data
         self.deep_layers = nn.ModuleList()
         for i in range(args.num_deep_layers):
             self.deep_layers.append(nn.Linear(input_size, args.deep_layer_size))
             self.deep_layers.append(nn.ReLU())
             self.deep_layers.append(nn.Dropout(p=0.2))
             input_size = args.deep_layer_size
-        
         self.deep_output_layer = nn.Linear(input_size, 1)
-        #self.sig=nn.Sigmoid()
-        
-        
         self.bceloss=nn.BCEWithLogitsLoss() # since bcewith logits is used, we don't need to add sigmoid layer in the end
-        
-        #self.optimizer = optim.SGD(self.parameters(), lr=lr, weight_decay=weight_decay)
-        self.mse_func = nn.MSELoss()
+
     def mse(self, y_pred, y_true):
-        return self.mse_func(y_pred, y_true.float())
+        return self.bceloss(y_pred, y_true.float())
 
 
     def deep_part(self, x):
@@ -46,13 +44,16 @@ class DeepFM(pl.LightningModule):
         return deep_out
     
 
-    def l2norm(self, tensor):
+    def l2norm(self):
+        
         for param in self.model.parameters():
             param.data = param.data / torch.norm(param.data, 2)
+
+        
         
 
     def loss(self, y_pred, y_true, c_values):
-        mse =self.mse_func(y_pred, y_true.float())
+        mse =self.bceloss(y_pred, y_true.float())
         #bce=self.bceloss(y_pred,y_true.float())
 
         weighted_bce = c_values * mse
@@ -62,19 +63,22 @@ class DeepFM(pl.LightningModule):
         
         return loss_y
     
-    def fm_part(self, x):
+    def fm_part(self, x,emb_x):
         linear_terms = torch.matmul(x, self.w)+self.bias
-        interactions = 0.5 * torch.sum(
-            torch.matmul(x, self.v) ** 2 - torch.matmul(x ** 2, self.v ** 2),
-            dim=1,
-            keepdim=True
-        )
+        square_of_sum = torch.sum((emb_x), dim=1) ** 2
+        sum_of_square = torch.sum((emb_x) ** 2, dim=1)
+        ix=square_of_sum-sum_of_square
+        interactions = 0.5 * torch.sum(ix, dim=1, keepdim=True)
         return linear_terms + interactions.squeeze()
 
-    def forward(self, x,emb_x):
-        # FM part
-        fm_part=self.fm_part(x)
-        deep_part=self.deep_part(emb_x)
+    def forward(self, x,x_hat):
+        # FM part, here, x_hat means another arbritary input of data, for combining the results. 
+        emb_x=self.embedding(x)
+        
+        x=x.float()
+        fm_part=self.fm_part(x,emb_x)
+        
+        deep_part=self.deep_part(emb_x.view(-1, self.args.emb_dim*self.num_features))
 
         
         # Deep part

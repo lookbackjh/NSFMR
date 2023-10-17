@@ -16,6 +16,7 @@ class DeepFM(pl.LightningModule):
         # embedding part
         self.embedding=nn.Embedding(self.num_features,args.emb_dim)
 
+        self.linear=torch.nn.Embedding(self.num_features,1)
         # FM part
         self.w = nn.Parameter(torch.randn(num_features))
         self.bias=nn.Parameter(torch.randn(1))
@@ -64,22 +65,25 @@ class DeepFM(pl.LightningModule):
         return loss_y
     
     def fm_part(self, x,emb_x):
-        linear_terms = torch.matmul(x, self.w)+self.bias
+        #linear_terms = torch.matmul(x, self.w)+self.bias
+        linear_terms=torch.sum(self.linear(x),dim=1)+self.bias
+
+
         square_of_sum = torch.sum((emb_x), dim=1) ** 2
         sum_of_square = torch.sum((emb_x) ** 2, dim=1)
         ix=square_of_sum-sum_of_square
         interactions = 0.5 * torch.sum(ix, dim=1, keepdim=True)
-        return linear_terms + interactions.squeeze()
+        return linear_terms.squeeze() + interactions.squeeze()
 
     def forward(self, x,x_hat):
         # FM part, here, x_hat means another arbritary input of data, for combining the results. 
         emb_x=self.embedding(x)
         
-        x=x.float()
+        
         fm_part=self.fm_part(x,emb_x)
         
         deep_part=self.deep_part(emb_x.view(-1, self.args.emb_dim*self.num_features))
-
+        #x=x.float()
         
         # Deep part
 

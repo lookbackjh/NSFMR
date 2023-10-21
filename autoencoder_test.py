@@ -14,6 +14,7 @@ from src.tester import Tester
 from src.model.autoencoder import AutoEncoder
 from src.data.autoencoderdataloader import AutoEncoderDataLoader
 from src.model.SVD import SVD
+import time
 
 def parser():
 
@@ -22,7 +23,7 @@ def parser():
     parser.add_argument('--lr', type=float, default=0.005, help='Learning rate for fm training')
     parser.add_argument('--weight_decay', type=float, default=0.1, help='Weight decay(for both FM and autoencoder)')
     parser.add_argument('--num_epochs_ae', type=int, default=100,    help='Number of epochs')
-    parser.add_argument('--num_epochs_training', type=int, default=200,    help='Number of epochs')
+    parser.add_argument('--num_epochs_training', type=int, default=300,    help='Number of epochs')
 
     parser.add_argument('--batch_size', type=int, default=1024, help='Batch size')
     parser.add_argument('--ae_batch_size', type=int, default=256, help='Batch size for autoencoder')
@@ -36,15 +37,16 @@ def parser():
 
     parser.add_argument('--emb_dim', type=int, default=16, help='embedding dimension for DeepFM')
     parser.add_argument('--num_embedding', type=int, default=200, help='Number of embedding for autoencoder') 
-    parser.add_argument('--embedding_type', type=str, default='original', help='AE or SVD or original')
+    parser.add_argument('--embedding_type', type=str, default='SVD', help='AE or SVD or original')
     parser.add_argument('--model_type', type=str, default='deepfm', help='fm or deepfm')
     parser.add_argument('--topk', type=int, default=5, help='top k items to recommend')
     parser.add_argument('--fold', type=int, default=1, help='fold number')
-    parser.add_argument('--isuniform', type=bool, default=True, help='isuniform')
+    parser.add_argument('--isuniform', type=bool, default=False, help='isuniform')
     parser.add_argument('--ratio_negative', type=int, default=0.2, help='ratio_negative')
     parser.add_argument('--auto_lr', type=float, default=0.01, help='autoencoder learning rate')
     parser.add_argument('--k', type=int, default=10, help='autoencoder k')
     parser.add_argument('--num_eigenvector', type=int, default=10,help='Number of eigenvectors for SVD')
+    parser.add_argument('--c_zero', type=int, default=10,help='c_zero for ns')
     args = parser.parse_args("")
     return args
 
@@ -151,63 +153,65 @@ def trainer(args,train_df,emb_train_df):
         model=DeepFM(naive_num_features,emb_num_features,args.num_factors,args)
 
     #model=DeepFM(preprocess.num_features,args.num_factors,args)
+    start_time=time.time()
     pl.trainer.Trainer(max_epochs=args.num_epochs_training).fit(model,train_dataloader)
-    return model,train_df
+    end_time=time.time()
+    return model,train_df, end_time-start_time
 
 
 
 
 if __name__ == '__main__':
     args=parser()
-    results=[]
-    for i in range(1,6):
-        args.fold=i
-        train_df ,test,movie_info,user_info,matrix,custom_object=getdata(args)
-    
+    # results=[]
+
+    types=['SVD']
+    svdresults=[]
+    aeresults=[]
+    originalresults=[]
+
+    czeros=[5,10,15,20,25]
+    cdict={}
+    for c in czeros:
+        args.c_zero=c
+        svdresults=[]
+        train_times=[]
+        test_times=[]
+        for i in range(1,6):
+            args.fold=i
+            train_df ,test,movie_info,user_info,matrix,custom_object=getdata(args)
+
+            if args.embedding_type=='SVD':
+                
+                svd=SVD(args)
+                user_embedding,movie_embedding=svd.get_embedding(matrix)
+
+                # emb_train df is embedded version of train_df
+                emb_train_df=custom_object.embedding_merge(user_embedding=user_embedding,movie_embedding=movie_embedding)
+                print("fold ",i," data loaded")
+                # train_df is original version of train_df
+                #train_df=custom_object.original_merge()
+                model,train_preprocess,train_time=trainer(args,emb_train_df,emb_train_df)
+                train_times.append(train_time)
+
+                tester=Tester(args,model,train_df,test,movie_info,user_info)
+                
+                start_time=time.time()  
+                result=tester.test(user_embedding=user_embedding,movie_embedding=movie_embedding)
+                end_time=time.time()
+
+                testing_time=end_time-start_time
+                svdresults.append(result)
+                test_times.append(testing_time)
         
-        # train_df is original version of train_df
-        train_df=custom_object.original_merge()
-        print("fold ",i," data loaded")
-        model,train_preprocess=trainer(args,train_df,train_df)
-        tester=Tester(args,model,train_df,test,movie_info,user_info)
-        result=tester.test()
-        results.append(result)
+        
+        cdict[c]=[svdresults,train_times,test_times]
 
-    for i in range(5):
-        print("fold ",i+1," result:",end=" ")
-        print(results[i])
-
-    # types=['SVD','AE']
-    # svdresults=[]
-    # aeresults=[]
-    # originalresults=[]
-    # for t in types:
-    #     args.embedding_type=t
-
-    #     for i in range(1,6):
-    #         args.fold=i
-    #         train_df ,test,movie_info,user_info,matrix,custom_object=getdata(args)
-            
-    #         if args.embedding_type=='SVD':
-                
-    #             svd=SVD(args)
-    #             user_embedding,movie_embedding=svd.get_embedding(matrix)
-
-    #             # emb_train df is embedded version of train_df
-    #             emb_train_df=custom_object.embedding_merge(user_embedding=user_embedding,movie_embedding=movie_embedding)
-    #             print("fold ",i," data loaded")
-    #             # train_df is original version of train_df
-    #             train_df=custom_object.original_merge()
-    #             model,train_preprocess=trainer(args,emb_train_df,emb_train_df)
-                
-                
-                
-                
-    #             tester=Tester(args,model,train_df,test,movie_info,user_info)
-    #             result=tester.test(user_embedding=user_embedding,movie_embedding=movie_embedding)
-    #             svdresults.append(result)
-
-
+    for key in cdict.keys():
+        print("c_zero ",key," results precision(SVD) training, testing time")
+        for i in range(5):
+            print("fold ",i+1," result:",end=" ")
+            print(cdict[key][0][i],cdict[key][1][i],cdict[key][2][i])
 
 
 

@@ -50,27 +50,6 @@ class FactorizationMachine(pl.LightningModule):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
         return optimizer
     
-    def recommend_top_n_items(self, user_features, all_item_features, all_item_ids, top_n=5):
-        combined_features = torch.cat([user_features.expand(all_item_features.shape[0], -1), all_item_features], dim=1)
-
-        with torch.no_grad():
-            scores = self.forward(combined_features)
-        # want to normalize scores to be between 0 and 1
-        scores = (scores - torch.min(scores)) / (torch.max(scores) - torch.min(scores))
-        sorted_indices = torch.argsort(scores, descending=True)[:top_n]
-
-        return [all_item_ids[i] for i in sorted_indices], scores[sorted_indices]
-    
-    def recommend_top_n_items_for_all_users(self, user_features_list, all_item_features, all_item_ids,top_n=5):
-        # as there are no dataset for testing, we will use all_item_features as user_features_list to recommend for each user
-        recommendations = {}
-        scores = {}
-        for i, user_features in enumerate(user_features_list):
-            user_id = user_features[0]  # can replace with actual user ID if I have
-            top_n_items,score = self.recommend_top_n_items(user_features[1:], all_item_features, all_item_ids, top_n)
-            recommendations[user_id] = top_n_items
-            scores[user_id] = score
-        return recommendations, scores
 
     
 

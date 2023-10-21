@@ -149,7 +149,7 @@ class Tester:
         #if self.args.embedding_type=='original':
         
         
-        original_df,user_list,movie_list=self.test_data_generator()
+        #original_df,user_list,movie_list=self.test_data_generator()
         
         user_df,user_list,movie_list=self.embedding_test_data_generator(user_embedding,movie_embedding) 
         #fm=FM_Preprocessing(user_df)
@@ -161,25 +161,25 @@ class Tester:
 
             #if self.args.embedding_type=='original':
             cur_customer_id='user_id_'+str(customerid)
-            temp=original_df[original_df[cur_customer_id]==1]
-            X_org=temp.drop(['c','target'],axis=1).values
-
-
             temp=user_df[user_df['user_id']==customerid]
-            X_emb=temp.drop(['user_id','c','target'],axis=1).values
+            X_org=temp.drop(['user_id','c','target'],axis=1).values
+
+
+            #temp=user_df[user_df['user_id']==customerid]
+            #X_emb=temp.drop(['user_id','c','target'],axis=1).values
             #print(temp)
-            c_values=temp['c'].values
+            #c_values=temp['c'].values
             y=temp['target'].values
 
            
-            X_emb=X_emb.astype(float)
+            #X_emb=X_emb.astype(float)
             X_org=X_org.astype(float)
 
             y=y.astype(float)
             X_tensor_org= torch.tensor(X_org, dtype=torch.float32)
-            X_tensor_emb = torch.tensor(X_emb, dtype=torch.float32)
+            #X_tensor_emb = torch.tensor(X_emb, dtype=torch.float32)
             y_tensor = torch.tensor(y, dtype=torch.float32).view(-1)
-            c_values_tensor = torch.tensor(c_values, dtype=torch.float32)
+            #c_values_tensor = torch.tensor(c_values, dtype=torch.float32)
 
 
 

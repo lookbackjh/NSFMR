@@ -16,14 +16,14 @@ class DeepFM(pl.LightningModule):
         # embedding part
         self.embedding=nn.Embedding(self.num_features,args.emb_dim)
 
-        self.linear=torch.nn.Embedding(self.num_features,1)
+        #self.linear=torch.nn.Embedding(self.num_features,1)
         # FM part
         self.w = nn.Parameter(torch.randn(num_features))
         self.bias=nn.Parameter(torch.randn(1))
-        self.v = nn.Parameter(torch.randn(args.emb_dim, num_factors))
+        self.v = nn.Parameter(torch.randn(num_features, num_factors))
         
         # Deep part
-        input_size = args.emb_dim*num_features  # Adjust this line to match the shape of your input data
+        input_size =num_features  # Adjust this line to match the shape of your input data
         self.deep_layers = nn.ModuleList()
         for i in range(args.num_deep_layers):
             self.deep_layers.append(nn.Linear(input_size, args.deep_layer_size))
@@ -65,24 +65,27 @@ class DeepFM(pl.LightningModule):
         return loss_y
     
     def fm_part(self, x,emb_x):
-        #linear_terms = torch.matmul(x, self.w)+self.bias
-        linear_terms=torch.sum(self.linear(x),dim=1)+self.bias
+        linear_terms = torch.matmul(x, self.w)+self.bias
+        interactions = 0.5 * torch.sum(
+            torch.matmul(x, self.v) ** 2 - torch.matmul(x ** 2, self.v ** 2),
+            dim=1,
+            keepdim=True
+        )        #linear_terms=torch.sum(self.linear(x),dim=1)+self.bia
 
-
-        square_of_sum = torch.sum((emb_x), dim=1) ** 2
-        sum_of_square = torch.sum((emb_x) ** 2, dim=1)
-        ix=square_of_sum-sum_of_square
-        interactions = 0.5 * torch.sum(ix, dim=1, keepdim=True)
+        # square_of_sum = torch.sum((x), dim=1) ** 2
+        # sum_of_square = torch.sum((x) ** 2, dim=1)
+        # ix=square_of_sum-sum_of_square
+        # interactions = 0.5 * torch.sum(ix, dim=1, keepdim=True)
         return linear_terms.squeeze() + interactions.squeeze()
 
     def forward(self, x,x_hat):
         # FM part, here, x_hat means another arbritary input of data, for combining the results. 
-        emb_x=self.embedding(x)
+        #emb_x=self.embedding(x)
         
         
-        fm_part=self.fm_part(x,emb_x)
+        fm_part=self.fm_part(x,x)
         
-        deep_part=self.deep_part(emb_x.view(-1, self.args.emb_dim*self.num_features))
+        deep_part=self.deep_part(x)
         #x=x.float()
         
         # Deep part
